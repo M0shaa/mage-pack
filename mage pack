@@ -1,0 +1,17 @@
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+
+local humanoid = character:WaitForChild("Humanoid")
+local animator = humanoid:WaitForChild("Animator")
+
+local animationIds = {
+    "http://www.roblox.com/asset/?id=12345678", -- Replace with the actual animation IDs from the Mage Animation Package
+    -- Add the other animation IDs from the package
+}
+
+for _, animId in ipairs(animationIds) do
+    local animation = Instance.new("Animation")
+    animation.AnimationId = animId
+    local track = animator:LoadAnimation(animation)
+    track:Play()
+end
