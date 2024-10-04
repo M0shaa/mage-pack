@@ -1,17 +1,37 @@
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
+local function optimizePerformance()
+    local settings = game:GetService("Workspace").CurrentCamera
+    settings.FieldOfView = 70
 
-local humanoid = character:WaitForChild("Humanoid")
-local animator = humanoid:WaitForChild("Animator")
+    local lighting = game:GetService("Lighting")
+    lighting.GlobalShadows = false
+    lighting.FogEnd = 9e9
+    lighting.Brightness = 1
 
-local animationIds = {
-    "http://www.roblox.com/asset/?id=12345678", -- Replace with the actual animation IDs from the Mage Animation Package
-    -- Add the other animation IDs from the package
-}
+    game:GetService("ContentProvider"):SetThreadPool(1)
+    game:GetService("UserSettings").GameSettings.MasterVolume = 0
 
-for _, animId in ipairs(animationIds) do
-    local animation = Instance.new("Animation")
-    animation.AnimationId = animId
-    local track = animator:LoadAnimation(animation)
-    track:Play()
+    settings:ClearAllChildren()
+
+    local function disableTextures()
+        for _, desc in ipairs(workspace:GetDescendants()) do
+            if desc:IsA("Texture") or desc:IsA("Decal") or desc:IsA("MeshPart") then
+                desc.Transparency = 1
+            elseif desc:IsA("BasePart") then
+                desc.Material = Enum.Material.SmoothPlastic
+            end
+        end
+    end
+
+    local function reduceQuality()
+        settings.RenderFidelity = Enum.RenderFidelity.Performance
+        settings.LevelOfDetail = Enum.LevelOfDetailSetting.Low
+        game:GetService("UserSettings").GameSettings.SavedQualityLevel = Enum.SavedQualitySetting.Low
+    end
+
+    reduceQuality()
+    disableTextures()
 end
+
+optimizePerformance()
+
+print("FPS optimization script successfully executed!")
