@@ -1,37 +1,75 @@
-local function optimizePerformance()
-    local settings = game:GetService("Workspace").CurrentCamera
-    settings.FieldOfView = 70
+local HeadSize = 6.1
+local IsDisabled = true
+local IsTeamCheckEnabled = false
+local HomingRadius = 10
+local MaxDistance = 500
+local IgnoreTransparentWalls = false
 
-    local lighting = game:GetService("Lighting")
-    lighting.GlobalShadows = false
-    lighting.FogEnd = 9e9
-    lighting.Brightness = 1
+local ScreenGui = Instance.new("ScreenGui")
+local TextLabel = Instance.new("TextLabel")
 
-    game:GetService("ContentProvider"):SetThreadPool(1)
-    game:GetService("UserSettings").GameSettings.MasterVolume = 0
+ScreenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+TextLabel.Parent = ScreenGui
+TextLabel.Text = "The script has been successfully executed, you're good to go!"
+TextLabel.Size = UDim2.new(0, 400, 0, 50)
+TextLabel.Position = UDim2.new(0.5, -200, 0.55, 0)
+TextLabel.TextColor3 = Color3.fromRGB(144, 238, 144)
+TextLabel.BackgroundTransparency = 1
+TextLabel.TextScaled = true
 
-    settings:ClearAllChildren()
+local function FadeOutText()
+    for i = 1, 50 do
+        TextLabel.TextTransparency = i / 50
+        TextLabel.Position = TextLabel.Position + UDim2.new(0.01, 0, 0, 0)
+        wait(0.06)
+    end
+    ScreenGui:Destroy()
+end
 
-    local function disableTextures()
-        for _, desc in ipairs(workspace:GetDescendants()) do
-            if desc:IsA("Texture") or desc:IsA("Decal") or desc:IsA("MeshPart") then
-                desc.Transparency = 1
-            elseif desc:IsA("BasePart") then
-                desc.Material = Enum.Material.SmoothPlastic
+spawn(function()
+    wait(3)
+    FadeOutText()
+end)
+
+game:GetService('RunService').RenderStepped:Connect(function()
+    if IsDisabled then
+        local localPlayer = game:GetService('Players').LocalPlayer
+        if not localPlayer then return end
+
+        local localPlayerTeam = localPlayer.Team
+        local character = localPlayer.Character
+        local head = character and character:FindFirstChild("Head")
+
+        if not head then return end
+
+        for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
+            if player ~= localPlayer and (not IsTeamCheckEnabled or player.Team ~= localPlayerTeam) then
+                local humanoidRootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+                if humanoidRootPart then
+                    humanoidRootPart.Size = Vector3.new(HeadSize, HeadSize, HeadSize)
+                    humanoidRootPart.Transparency = 1
+
+                    local rayOrigin = head.Position
+                    local rayDirection = (humanoidRootPart.Position - head.Position).Unit * MaxDistance
+                    local raycastParams = RaycastParams.new()
+                    raycastParams.FilterDescendantsInstances = {localPlayer.Character}
+                    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+                    local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+
+                    if raycastResult and raycastResult.Instance then
+                        if not raycastResult.Instance:IsDescendantOf(player.Character) then
+                            local distanceToTarget = (humanoidRootPart.Position - raycastResult.Position).Magnitude
+
+                            if distanceToTarget <= HomingRadius and (IgnoreTransparentWalls or raycastResult.Instance.Transparency < 0.5) then
+                            end
+                        end
+                    else
+                    end
+                end
             end
         end
     end
+end)
 
-    local function reduceQuality()
-        settings.RenderFidelity = Enum.RenderFidelity.Performance
-        settings.LevelOfDetail = Enum.LevelOfDetailSetting.Low
-        game:GetService("UserSettings").GameSettings.SavedQualityLevel = Enum.SavedQualitySetting.Low
-    end
-
-    reduceQuality()
-    disableTextures()
-end
-
-optimizePerformance()
-
-print("FPS optimization script successfully executed!")
+print("Script successfully executed!")
