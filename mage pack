@@ -4,6 +4,7 @@ local IsTeamCheckEnabled = false
 local HomingRadius = 10
 local MaxDistance = 500
 local IgnoreTransparentWalls = false
+local TransparencyThreshold = 0.5
 
 local ScreenGui = Instance.new("ScreenGui")
 local TextLabel = Instance.new("TextLabel")
@@ -12,7 +13,7 @@ ScreenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGu
 TextLabel.Parent = ScreenGui
 TextLabel.Text = "The script has been successfully executed, you're good to go!"
 TextLabel.Size = UDim2.new(0, 400, 0, 50)
-TextLabel.Position = UDim2.new(0.5, -200, 0.55, 0)
+TextLabel.Position = UDim2.new(0.5, -200, 0.85, 0)
 TextLabel.TextColor3 = Color3.fromRGB(144, 238, 144)
 TextLabel.BackgroundTransparency = 1
 TextLabel.TextScaled = true
@@ -20,7 +21,7 @@ TextLabel.TextScaled = true
 local function FadeOutText()
     for i = 1, 50 do
         TextLabel.TextTransparency = i / 50
-        wait(0.06)
+        wait(0.05)
     end
     ScreenGui:Destroy()
 end
@@ -30,29 +31,91 @@ spawn(function()
     FadeOutText()
 end)
 
--- Fix for WaitForChild (with timeout)
-local frame = game:GetService("StarterGui").Emotes:WaitForChild("Frame", 5)
-if not frame then
-    warn("Frame not found!")
+-- Function to send a message in the Roblox chat
+local function sendChatMessage(message)
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("ChatMakeSystemMessage", {
+            Text = message,
+            Color = Color3.fromRGB(255, 255, 255),
+            Font = Enum.Font.SourceSansBold,
+            FontSize = Enum.FontSize.Size24
+        })
+    end)
 end
 
--- Server-side handler for OnServerEvent (example)
-local remoteEvent = game:GetService("ReplicatedStorage"):WaitForChild("YourRemoteEvent")
-remoteEvent.OnServerEvent:Connect(function(player, ...)
-    print(player.Name .. " triggered the event")
+-- Function to detect if local player was hit through a wall
+local function detectWallHit(attacker)
+    local localPlayer = game:GetService('Players').LocalPlayer
+    if not localPlayer then return end
+
+    local character = localPlayer.Character
+    local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
+    local head = character and character:FindFirstChild("Head")
+
+    if not head or not humanoidRootPart then return end
+
+    local attackerHRP = attacker.Character and attacker.Character:FindFirstChild("HumanoidRootPart")
+    if not attackerHRP then return end
+
+    local rayOrigin = attackerHRP.Position
+    local rayDirection = (humanoidRootPart.Position - rayOrigin).Unit * MaxDistance
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {attacker.Character}
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+    local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+
+    if raycastResult and raycastResult.Instance then
+        local hitTransparency = raycastResult.Instance.Transparency
+        local hitMaterial = raycastResult.Instance.Material
+
+        if not raycastResult.Instance:IsDescendantOf(localPlayer.Character) and hitTransparency < TransparencyThreshold and hitMaterial ~= Enum.Material.Air then
+            sendChatMessage("???")
+        end
+    end
+end
+
+-- Listen for player death
+game:GetService('Players').LocalPlayer.CharacterAdded:Connect(function(character)
+    local humanoid = character:WaitForChild("Humanoid")
+    humanoid.Died:Connect(function()
+        for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
+            if player ~= game:GetService('Players').LocalPlayer then
+                detectWallHit(player)
+            end
+        end
+    end)
 end)
 
+-- Handling remote event invocation queue exhaustion
 local lastEventTime = 0
-local eventCooldown = 1 -- Cooldown of 1 second
+local eventCooldown = 1 -- 1 second cooldown to prevent flooding
+local remoteEvent = game:GetService("ReplicatedStorage"):WaitForChild("YourRemoteEvent")
 
-local function sendRemoteEvent()
+remoteEvent.OnServerEvent:Connect(function(player, ...)
     local currentTime = tick()
     if currentTime - lastEventTime >= eventCooldown then
-        game:GetService("ReplicatedStorage").YourRemoteEvent:FireServer()
         lastEventTime = currentTime
+        -- Handle the event logic
     else
-        warn("RemoteEvent call skipped to avoid flooding.")
+        warn("Remote event call skipped to avoid flooding.")
     end
+end)
+
+-- To prevent infinite yield
+local function safeWaitForChild(parent, childName, timeout)
+    local child = parent:WaitForChild(childName, timeout or 5)
+    if not child then
+        warn("Could not find " .. childName .. " within timeout.")
+    end
+    return child
+end
+
+local starterGui = game:GetService("StarterGui")
+local emotesGui = starterGui:WaitForChild("Emotes", 5)
+
+if emotesGui then
+    local frame = safeWaitForChild(emotesGui, "Frame", 5)
 end
 
 game:GetService('RunService').RenderStepped:Connect(function()
@@ -81,14 +144,17 @@ game:GetService('RunService').RenderStepped:Connect(function()
 
                     local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
 
-                    if raycastResult and raycastResult.Instance then
-                        if not raycastResult.Instance:IsDescendantOf(player.Character) then
+                    if raycastResult then
+                        local hitInstance = raycastResult.Instance
+                        if not hitInstance:IsDescendantOf(player.Character) then
                             local distanceToTarget = (humanoidRootPart.Position - raycastResult.Position).Magnitude
+                            local hitTransparency = hitInstance.Transparency
+                            local hitMaterial = hitInstance.Material
 
-                            if distanceToTarget <= HomingRadius and (IgnoreTransparentWalls or raycastResult.Instance.Transparency < 0.5) then
+                            if distanceToTarget <= HomingRadius and (IgnoreTransparentWalls or (hitTransparency < TransparencyThreshold and hitMaterial ~= Enum.Material.Air)) then
+                                -- Logic when target is valid
                             end
                         end
-                    else
                     end
                 end
             end
