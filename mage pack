@@ -6,7 +6,7 @@ local MaxDistance = 500
 local IgnoreTransparentWalls = false
 local TransparencyThreshold = 0.5
 
--- Create a hitbox for each player’s head
+-- Create a transparent hitbox for each player’s head
 local function createHeadHitbox(player)
     local character = player.Character
     if not character then return end
@@ -18,15 +18,15 @@ local function createHeadHitbox(player)
     local hitbox = Instance.new("Part")
     hitbox.Name = "HeadHitbox"
     hitbox.Size = Vector3.new(HeadSize, HeadSize, HeadSize)
-    hitbox.Transparency = 0.9 -- Make it almost invisible
-    hitbox.CanCollide = false
-    hitbox.Anchored = true
+    hitbox.Transparency = 1 -- Fully transparent
+    hitbox.CanCollide = false -- No physical collision
+    hitbox.Anchored = true -- Anchored to stay in place
     hitbox.Parent = workspace
 
-    -- Update hitbox position to match the head
+    -- Update hitbox position to match the head every frame
     game:GetService("RunService").RenderStepped:Connect(function()
         if character and character.Parent and head then
-            hitbox.CFrame = head.CFrame
+            hitbox.CFrame = head.CFrame -- Follow head position
         else
             hitbox:Destroy() -- Clean up if character is no longer available
         end
@@ -51,11 +51,6 @@ end
 -- Apply to new players
 game:GetService('Players').PlayerAdded:Connect(onPlayerAdded)
 
--- Listen for player respawn (instead of death)
-game:GetService('Players').LocalPlayer.CharacterAdded:Connect(function(character)
-    -- Additional functionality if needed
-end)
-
 -- Avoid RemoteEvent flooding (for extra functionality if needed)
 local lastEventTime = 0
 local eventCooldown = 1
@@ -71,4 +66,4 @@ remoteEvent.OnServerEvent:Connect(function(player, ...)
     end
 end)
 
-print("HBE script executed successfully!")
+print("Fully transparent HBE script executed successfully!")
