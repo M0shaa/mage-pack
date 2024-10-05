@@ -5,6 +5,7 @@ local HomingRadius = 10
 local MaxDistance = 500
 local IgnoreTransparentWalls = false
 local TransparencyThreshold = 0.5 -- For wall transparency detection
+local ImportantBodyParts = {"Head", "HumanoidRootPart"} -- Add more body parts if needed
 
 -- Table to store tracked players and their hitboxes
 local trackedPlayers = {}
@@ -34,21 +35,27 @@ local function createHeadHitbox(player)
     }
 end
 
--- Update hitbox positions continuously using Heartbeat
-local function updateTrackedPlayers()
-    game:GetService("RunService").Heartbeat:Connect(function()
-        for player, data in pairs(trackedPlayers) do
-            if data.character and data.head and data.hitbox then
-                -- Update the hitbox position to follow the head
-                data.hitbox.CFrame = data.head.CFrame
-            else
-                trackedPlayers[player] = nil -- Clean up if character is no longer available
-            end
-        end
-    end)
+-- Check if an object should block a shot based on material and transparency
+local function isWall(hitInstance)
+    -- Check if the hit instance has transparency or is part of a material that should block shots
+    local hitTransparency = hitInstance.Transparency
+    local hitMaterial = hitInstance.Material
+
+    -- List of materials that should not block shots (you can adjust this list)
+    local nonBlockingMaterials = {
+        Enum.Material.Glass,
+        Enum.Material.ForceField,
+        Enum.Material.Plastic -- Optional, depending on your needs
+    }
+
+    -- Return true if the material or transparency indicates it's a blocking object
+    if hitTransparency < TransparencyThreshold and not table.find(nonBlockingMaterials, hitMaterial) then
+        return true
+    end
+    return false
 end
 
--- Perform the wall check and track hits
+-- Perform multiple raycasts to improve the wall check accuracy
 local function performWallCheck()
     local localPlayer = game:GetService('Players').LocalPlayer
     if not localPlayer then return end
@@ -61,28 +68,30 @@ local function performWallCheck()
         if player ~= localPlayer and (not IsTeamCheckEnabled or player.Team ~= localPlayer.Team) then
             local data = trackedPlayers[player]
             if data and data.hitbox then
-                local hitbox = data.hitbox
-                local rayOrigin = head.Position
-                local rayDirection = (hitbox.Position - rayOrigin).Unit * MaxDistance
+                -- Improved check for multiple body parts
+                for _, partName in ipairs(ImportantBodyParts) do
+                    local targetPart = data.character:FindFirstChild(partName)
+                    if targetPart then
+                        local rayOrigin = head.Position
+                        local rayDirection = (targetPart.Position - rayOrigin).Unit * MaxDistance
 
-                -- Raycasting to check for walls
-                local raycastParams = RaycastParams.new()
-                raycastParams.FilterDescendantsInstances = {localPlayer.Character}
-                raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+                        -- Raycast to check for walls
+                        local raycastParams = RaycastParams.new()
+                        raycastParams.FilterDescendantsInstances = {localPlayer.Character}
+                        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
 
-                local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+                        local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
 
-                if raycastResult then
-                    local hitInstance = raycastResult.Instance
-                    local distanceToTarget = (hitbox.Position - raycastResult.Position).Magnitude
-                    local isWallBlocking = hitInstance.Transparency >= TransparencyThreshold or hitInstance:IsDescendantOf(workspace)
-
-                    -- If no wall blocks the hitbox, we assume the hit can register
-                    if distanceToTarget <= HomingRadius and not isWallBlocking then
-                        -- Logic to register hit here (e.g., damaging player)
-                        print(player.Name .. " is hittable!")
-                    else
-                        print(player.Name .. " is behind a wall.")
+                        if raycastResult then
+                            local hitInstance = raycastResult.Instance
+                            if isWall(hitInstance) then
+                                print(player.Name .. " is behind a wall.")
+                            else
+                                print(player.Name .. " is hittable!")
+                                -- Stop further checks once a hittable part is found
+                                break
+                            end
+                        end
                     end
                 end
             end
@@ -109,7 +118,16 @@ end
 game:GetService('Players').PlayerAdded:Connect(onPlayerAdded)
 
 -- Continuously update player hitboxes using Heartbeat
-updateTrackedPlayers()
+game:GetService("RunService").Heartbeat:Connect(function()
+    for player, data in pairs(trackedPlayers) do
+        if data.character and data.head and data.hitbox then
+            -- Update the hitbox position to follow the head
+            data.hitbox.CFrame = data.head.CFrame
+        else
+            trackedPlayers[player] = nil -- Clean up if character is no longer available
+        end
+    end
+end)
 
 -- Core logic in RenderStepped for continuous wall check
 game:GetService('RunService').RenderStepped:Connect(function()
@@ -118,4 +136,4 @@ game:GetService('RunService').RenderStepped:Connect(function()
     end
 end)
 
-print("Precise tracking HBE script with wall check successfully executed!")
+print("Enhanced HBE script with better wall check successfully executed!")
