@@ -1,4 +1,4 @@
-local HeadSize = 6.1
+local HeadSize = 6.3
 local IsDisabled = true
 local IsTeamCheckEnabled = false
 local HomingRadius = 10
