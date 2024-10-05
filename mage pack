@@ -5,92 +5,124 @@ local HomingRadius = 10
 local MaxDistance = 500
 local IgnoreTransparentWalls = false
 local TransparencyThreshold = 0.5 -- For wall transparency detection
-local ImportantBodyParts = {"Head", "HumanoidRootPart"} -- Add more body parts if needed
+local ImportantBodyParts = {"Head", "HumanoidRootPart", "LeftLeg", "RightLeg"} -- Track multiple key parts
 
 -- Table to store tracked players and their hitboxes
 local trackedPlayers = {}
 
--- Create a transparent hitbox for each player's head
-local function createHeadHitbox(player)
-    local character = player.Character
-    if not character then return end
+-- Materials that shouldn't block the ray (e.g., glass or transparent objects)
+local nonBlockingMaterials = {
+    Enum.Material.Glass,
+    Enum.Material.ForceField,
+    Enum.Material.Plastic -- Adjust based on your game needs
+}
 
-    local head = character:FindFirstChild("Head")
-    if not head then return end
-
-    -- Create the hitbox part
-    local hitbox = Instance.new("Part")
-    hitbox.Name = "HeadHitbox"
-    hitbox.Size = Vector3.new(HeadSize, HeadSize, HeadSize)
-    hitbox.Transparency = 1 -- Fully transparent
-    hitbox.CanCollide = false -- No physical collision
-    hitbox.Anchored = true -- Anchored so it doesn't fall or move
-    hitbox.Parent = workspace
-
-    -- Store the hitbox and character for tracking
-    trackedPlayers[player] = {
-        character = character,
-        hitbox = hitbox,
-        head = head
-    }
-end
-
--- Check if an object should block a shot based on material and transparency
+-- Function to check if an object is a wall
 local function isWall(hitInstance)
-    -- Check if the hit instance has transparency or is part of a material that should block shots
     local hitTransparency = hitInstance.Transparency
     local hitMaterial = hitInstance.Material
 
-    -- List of materials that should not block shots (you can adjust this list)
-    local nonBlockingMaterials = {
-        Enum.Material.Glass,
-        Enum.Material.ForceField,
-        Enum.Material.Plastic -- Optional, depending on your needs
-    }
-
-    -- Return true if the material or transparency indicates it's a blocking object
     if hitTransparency < TransparencyThreshold and not table.find(nonBlockingMaterials, hitMaterial) then
         return true
     end
     return false
 end
 
--- Perform multiple raycasts to improve the wall check accuracy
+-- Create hitboxes for each body part of interest
+local function createBodyHitbox(player, partName)
+    local character = player.Character
+    if not character then return end
+
+    local part = character:FindFirstChild(partName)
+    if not part then return end
+
+    -- Create a hitbox for the specific body part
+    local hitbox = Instance.new("Part")
+    hitbox.Name = partName .. "Hitbox"
+    hitbox.Size = Vector3.new(HeadSize, HeadSize, HeadSize)
+    hitbox.Transparency = 1 -- Fully transparent
+    hitbox.CanCollide = false -- No physical collision
+    hitbox.Anchored = true -- Anchored to stay in place
+    hitbox.Parent = workspace
+
+    -- Store the hitbox and character for tracking
+    trackedPlayers[player] = trackedPlayers[player] or {}
+    trackedPlayers[player][partName] = {
+        character = character,
+        hitbox = hitbox,
+        part = part
+    }
+end
+
+-- Update hitbox positions for each tracked body part
+local function updateTrackedPlayers()
+    game:GetService("RunService").Heartbeat:Connect(function()
+        for player, parts in pairs(trackedPlayers) do
+            for partName, data in pairs(parts) do
+                if data.character and data.part and data.hitbox then
+                    -- Sync hitbox with the player’s body part position
+                    data.hitbox.CFrame = data.part.CFrame
+                else
+                    trackedPlayers[player][partName] = nil -- Remove if part is no longer available
+                end
+            end
+        end
+    end)
+end
+
+-- Perform a max-enhanced wall check using multiple rays
 local function performWallCheck()
     local localPlayer = game:GetService('Players').LocalPlayer
     if not localPlayer then return end
 
     local character = localPlayer.Character
     local head = character and character:FindFirstChild("Head")
-    if not head then return end
+    local torso = character and character:FindFirstChild("HumanoidRootPart")
+    if not head or not torso then return end
 
     for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
         if player ~= localPlayer and (not IsTeamCheckEnabled or player.Team ~= localPlayer.Team) then
             local data = trackedPlayers[player]
-            if data and data.hitbox then
-                -- Improved check for multiple body parts
-                for _, partName in ipairs(ImportantBodyParts) do
-                    local targetPart = data.character:FindFirstChild(partName)
+            if data then
+                for partName, bodyData in pairs(data) do
+                    local targetPart = bodyData.part
                     if targetPart then
-                        local rayOrigin = head.Position
-                        local rayDirection = (targetPart.Position - rayOrigin).Unit * MaxDistance
+                        -- Cast multiple rays from different angles (head and torso) to target parts
+                        local rayOrigins = {head.Position, torso.Position}
+                        local raysHit = 0
+                        local raysCast = 0
 
-                        -- Raycast to check for walls
-                        local raycastParams = RaycastParams.new()
-                        raycastParams.FilterDescendantsInstances = {localPlayer.Character}
-                        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+                        for _, origin in pairs(rayOrigins) do
+                            for i = 1, 5 do -- Cast multiple rays in a spread pattern
+                                local rayDirection = (targetPart.Position - origin).Unit * MaxDistance
+                                local spread = Vector3.new(math.random(-10,10)/100, math.random(-10,10)/100, 0) -- Random slight spread
+                                rayDirection = rayDirection + spread
 
-                        local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+                                -- Raycasting to check for walls
+                                local raycastParams = RaycastParams.new()
+                                raycastParams.FilterDescendantsInstances = {localPlayer.Character}
+                                raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
 
-                        if raycastResult then
-                            local hitInstance = raycastResult.Instance
-                            if isWall(hitInstance) then
-                                print(player.Name .. " is behind a wall.")
-                            else
-                                print(player.Name .. " is hittable!")
-                                -- Stop further checks once a hittable part is found
-                                break
+                                local raycastResult = workspace:Raycast(origin, rayDirection, raycastParams)
+                                raysCast = raysCast + 1
+
+                                if raycastResult then
+                                    local hitInstance = raycastResult.Instance
+                                    if isWall(hitInstance) then
+                                        -- Block the shot if a wall is detected
+                                        print(player.Name .. " is behind a wall at " .. partName)
+                                    else
+                                        -- A ray hit without a wall means the part is hittable
+                                        raysHit = raysHit + 1
+                                    end
+                                end
                             end
+                        end
+
+                        -- If enough rays hit the target part without walls, register the hit
+                        if raysHit > (raysCast * 0.4) then -- Adjust threshold if needed
+                            print(player.Name .. " is hittable at " .. partName)
+                            -- Implement your hit logic here
                         end
                     end
                 end
@@ -99,18 +131,22 @@ local function performWallCheck()
     end
 end
 
--- Listen for when a player joins or respawns and track them
+-- Track player characters as they spawn or respawn
 local function onPlayerAdded(player)
     player.CharacterAdded:Connect(function(character)
-        wait(1) -- Wait for character to fully load
-        createHeadHitbox(player)
+        wait(1) -- Wait for character to load
+        for _, partName in ipairs(ImportantBodyParts) do
+            createBodyHitbox(player, partName)
+        end
     end)
 end
 
 -- Apply to existing players
 for _, player in pairs(game:GetService('Players'):GetPlayers()) do
     if player.Character then
-        createHeadHitbox(player)
+        for _, partName in ipairs(ImportantBodyParts) do
+            createBodyHitbox(player, partName)
+        end
     end
 end
 
@@ -118,16 +154,7 @@ end
 game:GetService('Players').PlayerAdded:Connect(onPlayerAdded)
 
 -- Continuously update player hitboxes using Heartbeat
-game:GetService("RunService").Heartbeat:Connect(function()
-    for player, data in pairs(trackedPlayers) do
-        if data.character and data.head and data.hitbox then
-            -- Update the hitbox position to follow the head
-            data.hitbox.CFrame = data.head.CFrame
-        else
-            trackedPlayers[player] = nil -- Clean up if character is no longer available
-        end
-    end
-end)
+updateTrackedPlayers()
 
 -- Core logic in RenderStepped for continuous wall check
 game:GetService('RunService').RenderStepped:Connect(function()
@@ -136,4 +163,4 @@ game:GetService('RunService').RenderStepped:Connect(function()
     end
 end)
 
-print("Enhanced HBE script with better wall check successfully executed!")
+print("Max-enhanced HBE script with ultimate wall check executed!")
