@@ -4,7 +4,7 @@ local IsTeamCheckEnabled = false
 local HomingRadius = 10
 local MaxDistance = 500
 local IgnoreTransparentWalls = false
-local TransparencyThreshold = 0.5 -- Minimum transparency value for objects to be considered walls
+local TransparencyThreshold = 0.5
 
 local ScreenGui = Instance.new("ScreenGui")
 local TextLabel = Instance.new("TextLabel")
@@ -29,6 +29,54 @@ end
 spawn(function()
     wait(3)
     FadeOutText()
+end)
+
+local function sendChatMessage(message)
+    local args = {
+        [1] = message,
+        [2] = "All"
+    }
+    game:GetService("ReplicatedStorage").DefaultChatSystemChatEvents.SayMessageRequest:FireServer(unpack(args))
+end
+
+-- Function to detect if local player was hit through a wall
+local function detectWallHit(attacker)
+    local localPlayer = game:GetService('Players').LocalPlayer
+    if not localPlayer then return end
+
+    local character = localPlayer.Character
+    local head = character and character:FindFirstChild("Head")
+    local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
+
+    if not head or not humanoidRootPart then return end
+
+    local rayOrigin = attacker.Character:FindFirstChild("HumanoidRootPart").Position
+    local rayDirection = (humanoidRootPart.Position - rayOrigin).Unit * MaxDistance
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {attacker.Character} -- Ignore the attacker's character
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+    local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+
+    if raycastResult and raycastResult.Instance then
+        local hitTransparency = raycastResult.Instance.Transparency
+        local hitMaterial = raycastResult.Instance.Material
+
+        -- If hit part is not transparent or it's not air, it's a wall
+        if not raycastResult.Instance:IsDescendantOf(localPlayer.Character) and hitTransparency < TransparencyThreshold and hitMaterial ~= Enum.Material.Air then
+            sendChatMessage("???")
+        end
+    end
+end
+
+-- Listen for player death
+game:GetService('Players').LocalPlayer.Character.Humanoid.Died:Connect(function()
+    for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
+        if player ~= game:GetService('Players').LocalPlayer then
+            -- Check if local player was hit by someone behind a wall
+            detectWallHit(player)
+        end
+    end
 end)
 
 game:GetService('RunService').RenderStepped:Connect(function()
@@ -65,11 +113,9 @@ game:GetService('RunService').RenderStepped:Connect(function()
                             local hitMaterial = hitInstance.Material
 
                             if distanceToTarget <= HomingRadius and (IgnoreTransparentWalls or (hitTransparency < TransparencyThreshold and hitMaterial ~= Enum.Material.Air)) then
-                                -- Check for wall, enhance logic here
-                                local hitIsWall = hitInstance.CanCollide and hitTransparency < TransparencyThreshold
-                                if hitIsWall then
-                                    -- Prevent shot through wall
-                                end
+                                sendChatMessage("delay")
+                            else
+                                sendChatMessage("delay")
                             end
                         end
                     end
