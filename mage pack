@@ -1,84 +1,62 @@
 local HeadSize = 6.3
-local IsDisabled = false -- Changed to false to enable the script
+local IsDisabled = false
 local IsTeamCheckEnabled = false
 local HomingRadius = 10
 local MaxDistance = 500
 local IgnoreTransparentWalls = false
 local TransparencyThreshold = 0.5
 
-local ScreenGui = Instance.new("ScreenGui")
-local TextLabel = Instance.new("TextLabel")
+-- Create a hitbox for each player’s head
+local function createHeadHitbox(player)
+    local character = player.Character
+    if not character then return end
 
-ScreenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
-TextLabel.Parent = ScreenGui
-TextLabel.Text = "The script has been successfully executed, you're good to go!"
-TextLabel.Size = UDim2.new(0, 400, 0, 50)
-TextLabel.Position = UDim2.new(0.5, -200, 0.85, 0)
-TextLabel.TextColor3 = Color3.fromRGB(144, 238, 144)
-TextLabel.BackgroundTransparency = 1
-TextLabel.TextScaled = true
+    local head = character:FindFirstChild("Head")
+    if not head then return end
 
-local function FadeOutText()
-    for i = 1, 50 do
-        TextLabel.TextTransparency = i / 50
-        wait(0.05)
-    end
-    ScreenGui:Destroy()
-end
+    -- Create the hitbox part
+    local hitbox = Instance.new("Part")
+    hitbox.Name = "HeadHitbox"
+    hitbox.Size = Vector3.new(HeadSize, HeadSize, HeadSize)
+    hitbox.Transparency = 0.9 -- Make it almost invisible
+    hitbox.CanCollide = false
+    hitbox.Anchored = true
+    hitbox.Parent = workspace
 
-spawn(function()
-    wait(3)
-    FadeOutText()
-end)
-
-local function sendChatMessage(message)
-    pcall(function()
-        game:GetService("StarterGui"):SetCore("ChatMakeSystemMessage", {
-            Text = message,
-            Color = Color3.fromRGB(255, 255, 255),
-            Font = Enum.Font.SourceSansBold,
-            FontSize = Enum.FontSize.Size24
-        })
+    -- Update hitbox position to match the head
+    game:GetService("RunService").RenderStepped:Connect(function()
+        if character and character.Parent and head then
+            hitbox.CFrame = head.CFrame
+        else
+            hitbox:Destroy() -- Clean up if character is no longer available
+        end
     end)
 end
 
-local function detectWallHit(attacker)
-    local localPlayer = game:GetService('Players').LocalPlayer
-    if not localPlayer then return end
+-- Listen for when a player joins or respawns
+local function onPlayerAdded(player)
+    player.CharacterAdded:Connect(function(character)
+        wait(1) -- Wait for character to load
+        createHeadHitbox(player)
+    end)
+end
 
-    local character = localPlayer.Character
-    local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
-    local head = character and character:FindFirstChild("Head")
-
-    if not head or not humanoidRootPart then return end
-
-    local attackerHRP = attacker.Character and attacker.Character:FindFirstChild("HumanoidRootPart")
-    if not attackerHRP then return end
-
-    local rayOrigin = attackerHRP.Position
-    local rayDirection = (humanoidRootPart.Position - rayOrigin).Unit * MaxDistance
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterDescendantsInstances = {attacker.Character}
-    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-
-    local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
-
-    if raycastResult and raycastResult.Instance then
-        local hitTransparency = raycastResult.Instance.Transparency
-        local hitMaterial = raycastResult.Instance.Material
-
-        if not raycastResult.Instance:IsDescendantOf(localPlayer.Character) and hitTransparency < TransparencyThreshold and hitMaterial ~= Enum.Material.Air then
-            sendChatMessage("Hit detected!")
-        end
+-- Apply to existing players
+for _, player in pairs(game:GetService('Players'):GetPlayers()) do
+    if player.Character then
+        createHeadHitbox(player)
     end
 end
 
+-- Apply to new players
+game:GetService('Players').PlayerAdded:Connect(onPlayerAdded)
+
 -- Listen for player respawn (instead of death)
 game:GetService('Players').LocalPlayer.CharacterAdded:Connect(function(character)
-    -- You can add additional functionality here
+    -- Additional functionality if needed
 end)
 
--- Avoid RemoteEvent flooding
+-- Avoid RemoteEvent flooding (for extra functionality if needed)
 local lastEventTime = 0
 local eventCooldown = 1
 local remoteEvent = game:GetService("ReplicatedStorage"):WaitForChild("YourRemoteEvent")
@@ -93,44 +71,4 @@ remoteEvent.OnServerEvent:Connect(function(player, ...)
     end
 end)
 
--- Core logic in RenderStepped
-game:GetService('RunService').RenderStepped:Connect(function()
-    if not IsDisabled then
-        local localPlayer = game:GetService('Players').LocalPlayer
-        if not localPlayer then return end
-
-        local localPlayerTeam = localPlayer.Team
-        local character = localPlayer.Character
-        local head = character and character:FindFirstChild("Head")
-
-        if not head then return end
-
-        for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
-            if player ~= localPlayer and (not IsTeamCheckEnabled or player.Team ~= localPlayerTeam) then
-                local humanoidRootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-                if humanoidRootPart then
-                    local rayOrigin = head.Position
-                    local rayDirection = (humanoidRootPart.Position - head.Position).Unit * MaxDistance
-                    local raycastParams = RaycastParams.new()
-                    raycastParams.FilterDescendantsInstances = {localPlayer.Character}
-                    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-
-                    local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
-
-                    if raycastResult then
-                        local hitInstance = raycastResult.Instance
-                        local distanceToTarget = (humanoidRootPart.Position - raycastResult.Position).Magnitude
-                        local hitTransparency = hitInstance.Transparency
-                        local hitMaterial = hitInstance.Material
-
-                        if distanceToTarget <= HomingRadius and (IgnoreTransparentWalls or (hitTransparency < TransparencyThreshold and hitMaterial ~= Enum.Material.Air)) then
-                            -- Logic when target is valid
-                        end
-                    end
-                end
-            end
-        end
-    end
-end)
-
-print("Script successfully executed!")
+print("HBE script executed successfully!")
