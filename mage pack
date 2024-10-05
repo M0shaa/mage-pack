@@ -4,6 +4,7 @@ local IsTeamCheckEnabled = false
 local HomingRadius = 10
 local MaxDistance = 500
 local IgnoreTransparentWalls = false
+local TransparencyThreshold = 0.5 -- Minimum transparency value for objects to be considered walls
 
 local ScreenGui = Instance.new("ScreenGui")
 local TextLabel = Instance.new("TextLabel")
@@ -12,7 +13,7 @@ ScreenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGu
 TextLabel.Parent = ScreenGui
 TextLabel.Text = "The script has been successfully executed, you're good to go!"
 TextLabel.Size = UDim2.new(0, 400, 0, 50)
-TextLabel.Position = UDim2.new(0.5, -200, 0.85, 0) -- Adjusted position based on image
+TextLabel.Position = UDim2.new(0.5, -200, 0.85, 0)
 TextLabel.TextColor3 = Color3.fromRGB(144, 238, 144)
 TextLabel.BackgroundTransparency = 1
 TextLabel.TextScaled = true
@@ -20,7 +21,7 @@ TextLabel.TextScaled = true
 local function FadeOutText()
     for i = 1, 50 do
         TextLabel.TextTransparency = i / 50
-        wait(0.05)  -- Smoother fade out effect
+        wait(0.05)
     end
     ScreenGui:Destroy()
 end
@@ -56,14 +57,21 @@ game:GetService('RunService').RenderStepped:Connect(function()
 
                     local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
 
-                    if raycastResult and raycastResult.Instance then
-                        if not raycastResult.Instance:IsDescendantOf(player.Character) then
+                    if raycastResult then
+                        local hitInstance = raycastResult.Instance
+                        if not hitInstance:IsDescendantOf(player.Character) then
                             local distanceToTarget = (humanoidRootPart.Position - raycastResult.Position).Magnitude
+                            local hitTransparency = hitInstance.Transparency
+                            local hitMaterial = hitInstance.Material
 
-                            if distanceToTarget <= HomingRadius and (IgnoreTransparentWalls or raycastResult.Instance.Transparency < 0.5) then
+                            if distanceToTarget <= HomingRadius and (IgnoreTransparentWalls or (hitTransparency < TransparencyThreshold and hitMaterial ~= Enum.Material.Air)) then
+                                -- Check for wall, enhance logic here
+                                local hitIsWall = hitInstance.CanCollide and hitTransparency < TransparencyThreshold
+                                if hitIsWall then
+                                    -- Prevent shot through wall
+                                end
                             end
                         end
-                    else
                     end
                 end
             end
