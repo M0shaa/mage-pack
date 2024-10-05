@@ -1,12 +1,15 @@
 local HeadSize = 6.3
-local IsDisabled = false
+local IsDisabled = false -- Set to false to enable the script by default
 local IsTeamCheckEnabled = false
 local HomingRadius = 10
 local MaxDistance = 500
 local IgnoreTransparentWalls = false
-local TransparencyThreshold = 0.5
+local TransparencyThreshold = 0.5 -- For wall transparency detection
 
--- Create a transparent hitbox for each player’s head
+-- Table to store tracked players and their hitboxes
+local trackedPlayers = {}
+
+-- Create a transparent hitbox for each player's head
 local function createHeadHitbox(player)
     local character = player.Character
     if not character then return end
@@ -20,23 +23,77 @@ local function createHeadHitbox(player)
     hitbox.Size = Vector3.new(HeadSize, HeadSize, HeadSize)
     hitbox.Transparency = 1 -- Fully transparent
     hitbox.CanCollide = false -- No physical collision
-    hitbox.Anchored = true -- Anchored to stay in place
+    hitbox.Anchored = true -- Anchored so it doesn't fall or move
     hitbox.Parent = workspace
 
-    -- Update hitbox position to match the head every frame
-    game:GetService("RunService").RenderStepped:Connect(function()
-        if character and character.Parent and head then
-            hitbox.CFrame = head.CFrame -- Follow head position
-        else
-            hitbox:Destroy() -- Clean up if character is no longer available
+    -- Store the hitbox and character for tracking
+    trackedPlayers[player] = {
+        character = character,
+        hitbox = hitbox,
+        head = head
+    }
+end
+
+-- Update hitbox positions continuously using Heartbeat
+local function updateTrackedPlayers()
+    game:GetService("RunService").Heartbeat:Connect(function()
+        for player, data in pairs(trackedPlayers) do
+            if data.character and data.head and data.hitbox then
+                -- Update the hitbox position to follow the head
+                data.hitbox.CFrame = data.head.CFrame
+            else
+                trackedPlayers[player] = nil -- Clean up if character is no longer available
+            end
         end
     end)
 end
 
--- Listen for when a player joins or respawns
+-- Perform the wall check and track hits
+local function performWallCheck()
+    local localPlayer = game:GetService('Players').LocalPlayer
+    if not localPlayer then return end
+
+    local character = localPlayer.Character
+    local head = character and character:FindFirstChild("Head")
+    if not head then return end
+
+    for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
+        if player ~= localPlayer and (not IsTeamCheckEnabled or player.Team ~= localPlayer.Team) then
+            local data = trackedPlayers[player]
+            if data and data.hitbox then
+                local hitbox = data.hitbox
+                local rayOrigin = head.Position
+                local rayDirection = (hitbox.Position - rayOrigin).Unit * MaxDistance
+
+                -- Raycasting to check for walls
+                local raycastParams = RaycastParams.new()
+                raycastParams.FilterDescendantsInstances = {localPlayer.Character}
+                raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+                local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+
+                if raycastResult then
+                    local hitInstance = raycastResult.Instance
+                    local distanceToTarget = (hitbox.Position - raycastResult.Position).Magnitude
+                    local isWallBlocking = hitInstance.Transparency >= TransparencyThreshold or hitInstance:IsDescendantOf(workspace)
+
+                    -- If no wall blocks the hitbox, we assume the hit can register
+                    if distanceToTarget <= HomingRadius and not isWallBlocking then
+                        -- Logic to register hit here (e.g., damaging player)
+                        print(player.Name .. " is hittable!")
+                    else
+                        print(player.Name .. " is behind a wall.")
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Listen for when a player joins or respawns and track them
 local function onPlayerAdded(player)
     player.CharacterAdded:Connect(function(character)
-        wait(1) -- Wait for character to load
+        wait(1) -- Wait for character to fully load
         createHeadHitbox(player)
     end)
 end
@@ -51,19 +108,14 @@ end
 -- Apply to new players
 game:GetService('Players').PlayerAdded:Connect(onPlayerAdded)
 
--- Avoid RemoteEvent flooding (for extra functionality if needed)
-local lastEventTime = 0
-local eventCooldown = 1
-local remoteEvent = game:GetService("ReplicatedStorage"):WaitForChild("YourRemoteEvent")
+-- Continuously update player hitboxes using Heartbeat
+updateTrackedPlayers()
 
-remoteEvent.OnServerEvent:Connect(function(player, ...)
-    local currentTime = tick()
-    if currentTime - lastEventTime >= eventCooldown then
-        lastEventTime = currentTime
-        -- Handle your event logic here
-    else
-        warn("Remote event call skipped to avoid flooding.")
+-- Core logic in RenderStepped for continuous wall check
+game:GetService('RunService').RenderStepped:Connect(function()
+    if not IsDisabled then
+        performWallCheck() -- Continuously check for walls and hittable targets
     end
 end)
 
-print("Fully transparent HBE script executed successfully!")
+print("Precise tracking HBE script with wall check successfully executed!")
