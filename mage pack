@@ -1,5 +1,5 @@
 local HeadSize = 6.3
-local IsDisabled = true
+local IsDisabled = false -- Changed to false to enable the script
 local IsTeamCheckEnabled = false
 local HomingRadius = 10
 local MaxDistance = 500
@@ -31,7 +31,6 @@ spawn(function()
     FadeOutText()
 end)
 
--- Function to send a message in the Roblox chat
 local function sendChatMessage(message)
     pcall(function()
         game:GetService("StarterGui"):SetCore("ChatMakeSystemMessage", {
@@ -43,7 +42,6 @@ local function sendChatMessage(message)
     end)
 end
 
--- Function to detect if local player was hit through a wall
 local function detectWallHit(attacker)
     local localPlayer = game:GetService('Players').LocalPlayer
     if not localPlayer then return end
@@ -70,56 +68,34 @@ local function detectWallHit(attacker)
         local hitMaterial = raycastResult.Instance.Material
 
         if not raycastResult.Instance:IsDescendantOf(localPlayer.Character) and hitTransparency < TransparencyThreshold and hitMaterial ~= Enum.Material.Air then
-            sendChatMessage("???")
+            sendChatMessage("Hit detected!")
         end
     end
 end
 
--- Listen for player death
+-- Listen for player respawn (instead of death)
 game:GetService('Players').LocalPlayer.CharacterAdded:Connect(function(character)
-    local humanoid = character:WaitForChild("Humanoid")
-    humanoid.Died:Connect(function()
-        for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
-            if player ~= game:GetService('Players').LocalPlayer then
-                detectWallHit(player)
-            end
-        end
-    end)
+    -- You can add additional functionality here
 end)
 
--- Handling remote event invocation queue exhaustion
+-- Avoid RemoteEvent flooding
 local lastEventTime = 0
-local eventCooldown = 1 -- 1 second cooldown to prevent flooding
+local eventCooldown = 1
 local remoteEvent = game:GetService("ReplicatedStorage"):WaitForChild("YourRemoteEvent")
 
 remoteEvent.OnServerEvent:Connect(function(player, ...)
     local currentTime = tick()
     if currentTime - lastEventTime >= eventCooldown then
         lastEventTime = currentTime
-        -- Handle the event logic
+        -- Handle your event logic here
     else
         warn("Remote event call skipped to avoid flooding.")
     end
 end)
 
--- To prevent infinite yield
-local function safeWaitForChild(parent, childName, timeout)
-    local child = parent:WaitForChild(childName, timeout or 5)
-    if not child then
-        warn("Could not find " .. childName .. " within timeout.")
-    end
-    return child
-end
-
-local starterGui = game:GetService("StarterGui")
-local emotesGui = starterGui:WaitForChild("Emotes", 5)
-
-if emotesGui then
-    local frame = safeWaitForChild(emotesGui, "Frame", 5)
-end
-
+-- Core logic in RenderStepped
 game:GetService('RunService').RenderStepped:Connect(function()
-    if IsDisabled then
+    if not IsDisabled then
         local localPlayer = game:GetService('Players').LocalPlayer
         if not localPlayer then return end
 
@@ -133,9 +109,6 @@ game:GetService('RunService').RenderStepped:Connect(function()
             if player ~= localPlayer and (not IsTeamCheckEnabled or player.Team ~= localPlayerTeam) then
                 local humanoidRootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
                 if humanoidRootPart then
-                    humanoidRootPart.Size = Vector3.new(HeadSize, HeadSize, HeadSize)
-                    humanoidRootPart.Transparency = 1
-
                     local rayOrigin = head.Position
                     local rayDirection = (humanoidRootPart.Position - head.Position).Unit * MaxDistance
                     local raycastParams = RaycastParams.new()
@@ -146,14 +119,12 @@ game:GetService('RunService').RenderStepped:Connect(function()
 
                     if raycastResult then
                         local hitInstance = raycastResult.Instance
-                        if not hitInstance:IsDescendantOf(player.Character) then
-                            local distanceToTarget = (humanoidRootPart.Position - raycastResult.Position).Magnitude
-                            local hitTransparency = hitInstance.Transparency
-                            local hitMaterial = hitInstance.Material
+                        local distanceToTarget = (humanoidRootPart.Position - raycastResult.Position).Magnitude
+                        local hitTransparency = hitInstance.Transparency
+                        local hitMaterial = hitInstance.Material
 
-                            if distanceToTarget <= HomingRadius and (IgnoreTransparentWalls or (hitTransparency < TransparencyThreshold and hitMaterial ~= Enum.Material.Air)) then
-                                -- Logic when target is valid
-                            end
+                        if distanceToTarget <= HomingRadius and (IgnoreTransparentWalls or (hitTransparency < TransparencyThreshold and hitMaterial ~= Enum.Material.Air)) then
+                            -- Logic when target is valid
                         end
                     end
                 end
