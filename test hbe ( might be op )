@@ -9,6 +9,10 @@ local Lp = Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local toggleGui = true -- This will track the GUI's visibility
 
+-- Initialize global variables
+_G.HeadSize = 5 -- Default head size
+_G.Toggle = false -- Default for CanCollide (off)
+
 game:GetService("StarterGui"):SetCore("SendNotification", {
     Title = "Made By unknown_1q",
     Text = "May not work on some games",
@@ -201,11 +205,6 @@ for _, player in pairs(Players:GetPlayers()) do
             local ht = character:FindFirstChild("HumanoidRootPart")
             if ht then
                 ht.Size = Vector3.new(_G.HeadSize, _G.HeadSize, _G.HeadSize)
-                ht.Transparency = 0.7 -- Hitbox transparency
+                ht.Transparency = 1 -- Hitbox transparency
                 ht.CanCollide = _G.Toggle
-                ht.Material = Enum.Material.Neon
-                ht.BrickColor = BrickColor.new("Royal purple")
-            end
-        end
-    end)
-end
+                ht.Material = Enum.Material
