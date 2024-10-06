@@ -110,7 +110,6 @@ local function performWallCheck()
                                     local hitInstance = raycastResult.Instance
                                     if isWall(hitInstance) then
                                         -- Block the shot if a wall is detected
-                                        print(player.Name .. " is behind a wall at " .. partName)
                                     else
                                         -- A ray hit without a wall means the part is hittable
                                         raysHit = raysHit + 1
@@ -121,7 +120,6 @@ local function performWallCheck()
 
                         -- If enough rays hit the target part without walls, register the hit
                         if raysHit > (raysCast * 0.4) then -- Adjust threshold if needed
-                            print(player.Name .. " is hittable at " .. partName)
                             -- Implement your hit logic here
                         end
                     end
@@ -162,5 +160,3 @@ game:GetService('RunService').RenderStepped:Connect(function()
         performWallCheck() -- Continuously check for walls and hittable targets
     end
 end)
-
-print("Max-enhanced HBE script with ultimate wall check executed!")
