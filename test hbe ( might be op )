@@ -1,0 +1,201 @@
+local HitboxExpander = Instance.new("ScreenGui")
+local HitboxFrame = Instance.new("Frame")
+local TextLabel = Instance.new("TextLabel")
+local Expand = Instance.new("TextButton")
+local CanCollide = Instance.new("TextButton")
+local TextBox = Instance.new("TextBox")
+local Players = game:GetService("Players")
+local Lp = Players.LocalPlayer
+local UIS = game:GetService("UserInputService")
+local toggleGui = true -- This will track the GUI's visibility
+
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "Made By unknown_1q",
+    Text = "May not work on some games",
+    Icon = "rbxassetid://17682701167"
+})
+
+wait(2)
+
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "Reminder",
+    Text = "This was made only for level 2 executors",
+    Icon = "rbxassetid://17682701167"
+})
+
+wait(2)
+
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "Enjoy!",
+    Text = "Have Fun!",
+    Icon = "rbxassetid://17682701167"
+})
+
+HitboxExpander.Name = "Hitbox Expander"
+HitboxExpander.Parent = game:GetService("CoreGui")
+HitboxExpander.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+HitboxFrame.Name = "Hitbox Frame"
+HitboxFrame.Parent = HitboxExpander
+HitboxFrame.BackgroundColor3 = Color3.new(0, 0, 0)
+HitboxFrame.BorderColor3 = Color3.new(0, 0, 0)
+HitboxFrame.BorderSizePixel = 0
+HitboxFrame.Position = UDim2.new(0.203580201, 0, 0.523809552, 0)
+HitboxFrame.Size = UDim2.new(0, 193, 0, 216)
+
+TextLabel.Parent = HitboxFrame
+TextLabel.BackgroundColor3 = Color3.new(0, 0, 0)
+TextLabel.BorderColor3 = Color3.new(0, 0, 0)
+TextLabel.BorderSizePixel = 0
+TextLabel.Size = UDim2.new(0, 192, 0, 50)
+TextLabel.Font = Enum.Font.ArialBold
+TextLabel.Text = "Hitbox Expander"
+TextLabel.TextColor3 = Color3.new(1, 1, 1)
+TextLabel.TextScaled = true
+TextLabel.TextSize = 14
+TextLabel.TextStrokeColor3 = Color3.new(1, 1, 1)
+TextLabel.TextWrapped = true
+
+Expand.Name = "Expand"
+Expand.Parent = HitboxFrame
+Expand.BackgroundColor3 = Color3.new(1, 1, 1)
+Expand.BorderColor3 = Color3.new(0, 0, 0)
+Expand.BorderSizePixel = 0
+Expand.Position = UDim2.new(0.0612399243, 0, 0.73983568, 0)
+Expand.Size = UDim2.new(0, 169, 0, 37)
+Expand.Font = Enum.Font.SourceSansBold
+Expand.Text = "Expand"
+Expand.TextColor3 = Color3.new(0, 0, 0)
+Expand.TextScaled = true
+Expand.TextSize = 14
+Expand.TextWrapped = true
+Expand.MouseButton1Click:Connect(function()
+    local size = tonumber(TextBox.Text)
+    if not size then
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Error",
+            Text = "Please enter a valid number",
+            Icon = "rbxassetid://17682701167"
+        })
+        return
+    end
+    _G.HeadSize = size
+    while wait(1) do
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= Lp and player.Character then
+                local ht = player.Character:FindFirstChild("HumanoidRootPart")
+                if ht then
+                    ht.Size = Vector3.new(_G.HeadSize, _G.HeadSize, _G.HeadSize)
+                    ht.Transparency = 0.7 -- Make the hitbox more transparent
+                    ht.CanCollide = _G.Toggle
+                    ht.Material = Enum.Material.Neon
+                    ht.BrickColor = BrickColor.new("Royal purple")
+                end
+            end
+        end
+    end
+end)
+
+CanCollide.Name = "CanCollide"
+CanCollide.Parent = HitboxFrame
+CanCollide.BackgroundColor3 = Color3.new(1, 1, 1)
+CanCollide.BorderColor3 = Color3.new(0, 0, 0)
+CanCollide.BorderSizePixel = 0
+CanCollide.Position = UDim2.new(0.0621761642, 0, 0.486111104, 0)
+CanCollide.Size = UDim2.new(0, 169, 0, 37)
+CanCollide.Font = Enum.Font.SourceSansBold
+CanCollide.Text = "CanCollide: OFF"
+CanCollide.TextColor3 = Color3.new(1, 0, 0)
+CanCollide.TextScaled = true
+CanCollide.TextSize = 14
+CanCollide.TextWrapped = true
+CanCollide.MouseButton1Click:Connect(function()
+    if _G.Toggle == false then
+        _G.Toggle = true
+        CanCollide.TextColor3 = Color3.fromRGB(77, 255, 0)
+        CanCollide.Text = "CanCollide: ON"
+    else
+        _G.Toggle = false
+        CanCollide.TextColor3 = Color3.fromRGB(255, 0, 0)
+        CanCollide.Text = "CanCollide: OFF"
+    end
+end)
+
+TextBox.Parent = HitboxFrame
+TextBox.BackgroundColor3 = Color3.new(1, 1, 1)
+TextBox.BorderColor3 = Color3.new(0, 0, 0)
+TextBox.BorderSizePixel = 0
+TextBox.Position = UDim2.new(0.0569948182, 0, 0.231481478, 0)
+TextBox.Size = UDim2.new(0, 168, 0, 37)
+TextBox.Font = Enum.Font.SourceSansBold
+TextBox.Text = "Enter Size Number Here!"
+TextBox.TextColor3 = Color3.new(0, 0, 0)
+TextBox.TextScaled = true
+TextBox.TextSize = 14
+TextBox.TextWrapped = true
+
+-- Drag script for HitboxFrame
+local UIS = game:GetService('UserInputService')
+local frame = HitboxFrame
+local dragToggle = nil
+local dragSpeed = 0.25
+local dragStart = nil
+local startPos = nil
+
+local function updateInput(input)
+    local delta = input.Position - dragStart
+    local position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    game:GetService('TweenService'):Create(frame, TweenInfo.new(dragSpeed), {Position = position}):Play()
+end
+
+frame.InputBegan:Connect(function(input)
+    if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+        dragToggle = true
+        dragStart = input.Position
+        startPos = frame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragToggle = false
+            end
+        end)
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        if dragToggle then
+            updateInput(input)
+        end
+    end
+end)
+
+-- Toggle GUI visibility when RightShift is pressed
+UIS.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        toggleGui = not toggleGui
+        HitboxExpander.Enabled = toggleGui
+    end
+end)
+
+-- Apply hitbox expander to new and reset characters
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(character)
+        wait(1)
+        if player ~= Lp then
+            local ht = character:FindFirstChild("HumanoidRootPart")
+            if ht then
+                ht.Size = Vector3.new(_G.HeadSize, _G.HeadSize, _G.HeadSize)
+                ht.Transparency = 0.7 -- Hitbox transparency
+                ht.CanCollide = _G.Toggle
+                ht.Material = Enum.Material.Neon
+                ht.BrickColor = BrickColor.new("Royal purple")
+            end
+        end
+    end)
+end)
+
+for _, player in pairs(Players:GetPlayers()) do
+    player.CharacterAdded:Connect(function(character)
+        wait(1)
+        if player ~= Lp then
+            local ht = character:FindFirstChild("Humanoid
