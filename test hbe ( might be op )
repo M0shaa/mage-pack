@@ -198,4 +198,14 @@ for _, player in pairs(Players:GetPlayers()) do
     player.CharacterAdded:Connect(function(character)
         wait(1)
         if player ~= Lp then
-            local ht = character:FindFirstChild("Humanoid
+            local ht = character:FindFirstChild("HumanoidRootPart")
+            if ht then
+                ht.Size = Vector3.new(_G.HeadSize, _G.HeadSize, _G.HeadSize)
+                ht.Transparency = 0.7 -- Hitbox transparency
+                ht.CanCollide = _G.Toggle
+                ht.Material = Enum.Material.Neon
+                ht.BrickColor = BrickColor.new("Royal purple")
+            end
+        end
+    end)
+end
