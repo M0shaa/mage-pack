@@ -43,44 +43,32 @@ local function sendChatMessage(message)
     end)
 end
 
--- Function to detect if local player was hit through a wall
-local function detectWallHit(attacker)
-    local localPlayer = game:GetService('Players').LocalPlayer
-    if not localPlayer then return end
-
-    local character = localPlayer.Character
-    local head = character and character:FindFirstChild("Head")
-    local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
-
-    if not head or not humanoidRootPart then return end
-
+-- Function to check if a player can be hit (not behind a wall)
+local function canHitPlayer(attacker, target)
     local attackerHRP = attacker.Character and attacker.Character:FindFirstChild("HumanoidRootPart")
-    if not attackerHRP then return end
-
+    local targetHRP = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+    
+    if not attackerHRP or not targetHRP then return false end
+    
     local rayOrigin = attackerHRP.Position
-    local rayDirection = (humanoidRootPart.Position - rayOrigin).Unit * MaxDistance
+    local rayDirection = (targetHRP.Position - rayOrigin).Unit * MaxDistance
     local raycastParams = RaycastParams.new()
-    raycastParams.FilterDescendantsInstances = {attacker.Character}
+    raycastParams.FilterDescendantsInstances = {attacker.Character, target.Character}
     raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
 
     local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
-
-    if raycastResult and raycastResult.Instance then
-        local hitTransparency = raycastResult.Instance.Transparency
-        local hitMaterial = raycastResult.Instance.Material
-
-        if not raycastResult.Instance:IsDescendantOf(localPlayer.Character) and hitTransparency < TransparencyThreshold and hitMaterial ~= Enum.Material.Air then
-            sendChatMessage("???")
-        end
-    end
+    
+    return not raycastResult or raycastResult.Instance.Transparency >= TransparencyThreshold
 end
 
 -- Listen for player death
 local function onCharacterAdded(character)
     local humanoid = character:WaitForChild("Humanoid")
     humanoid.Died:Connect(function()
+        local localPlayer = game:GetService('Players').LocalPlayer
         for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
-            if player ~= localPlayer then
+            if player ~= localPlayer and canHitPlayer(player, localPlayer) then
+                -- Only call detectWallHit if the player can be hit
                 detectWallHit(player)
             end
         end
