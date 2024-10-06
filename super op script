@@ -6,10 +6,15 @@ local MaxDistance = 500
 local IgnoreTransparentWalls = false
 local TransparencyThreshold = 0.5
 
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+local LocalPlayer = Players.LocalPlayer
+
 local ScreenGui = Instance.new("ScreenGui")
 local TextLabel = Instance.new("TextLabel")
 
-ScreenGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 TextLabel.Parent = ScreenGui
 TextLabel.Text = "The script has been successfully executed, you're good to go!"
 TextLabel.Size = UDim2.new(0, 400, 0, 50)
@@ -31,10 +36,9 @@ spawn(function()
     FadeOutText()
 end)
 
--- Function to send a message in the Roblox chat
 local function sendChatMessage(message)
     pcall(function()
-        game:GetService("StarterGui"):SetCore("ChatMakeSystemMessage", {
+        StarterGui:SetCore("ChatMakeSystemMessage", {
             Text = message,
             Color = Color3.fromRGB(255, 255, 255),
             Font = Enum.Font.SourceSansBold,
@@ -43,59 +47,46 @@ local function sendChatMessage(message)
     end)
 end
 
--- Function to check if a player can be hit (not behind a wall)
 local function canHitPlayer(attacker, target)
     local attackerHRP = attacker.Character and attacker.Character:FindFirstChild("HumanoidRootPart")
     local targetHRP = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-    
     if not attackerHRP or not targetHRP then return false end
-    
+
     local rayOrigin = attackerHRP.Position
     local rayDirection = (targetHRP.Position - rayOrigin).Unit * MaxDistance
     local raycastParams = RaycastParams.new()
     raycastParams.FilterDescendantsInstances = {attacker.Character, target.Character}
     raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-
     local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
-    
+
     return not raycastResult or raycastResult.Instance.Transparency >= TransparencyThreshold
 end
 
--- Listen for player death
 local function onCharacterAdded(character)
     local humanoid = character:WaitForChild("Humanoid")
     humanoid.Died:Connect(function()
-        local localPlayer = game:GetService('Players').LocalPlayer
-        for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
-            if player ~= localPlayer and canHitPlayer(player, localPlayer) then
-                -- Only call detectWallHit if the player can be hit
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and canHitPlayer(player, LocalPlayer) then
                 detectWallHit(player)
             end
         end
     end)
 end
 
--- Connect the character added event
-game:GetService('Players').LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
+LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
 
--- Call for existing character
-if game:GetService('Players').LocalPlayer.Character then
-    onCharacterAdded(game:GetService('Players').LocalPlayer.Character)
+if LocalPlayer.Character then
+    onCharacterAdded(LocalPlayer.Character)
 end
 
-game:GetService('RunService').RenderStepped:Connect(function()
+RunService.RenderStepped:Connect(function()
     if IsDisabled then
-        local localPlayer = game:GetService('Players').LocalPlayer
-        if not localPlayer then return end
-
-        local localPlayerTeam = localPlayer.Team
-        local character = localPlayer.Character
+        local character = LocalPlayer.Character
         local head = character and character:FindFirstChild("Head")
-
         if not head then return end
 
-        for _, player in ipairs(game:GetService('Players'):GetPlayers()) do
-            if player ~= localPlayer and (not IsTeamCheckEnabled or player.Team ~= localPlayerTeam) then
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and (not IsTeamCheckEnabled or player.Team ~= LocalPlayer.Team) then
                 local humanoidRootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
                 if humanoidRootPart then
                     humanoidRootPart.Size = Vector3.new(HeadSize, HeadSize, HeadSize)
@@ -104,9 +95,8 @@ game:GetService('RunService').RenderStepped:Connect(function()
                     local rayOrigin = head.Position
                     local rayDirection = (humanoidRootPart.Position - head.Position).Unit * MaxDistance
                     local raycastParams = RaycastParams.new()
-                    raycastParams.FilterDescendantsInstances = {localPlayer.Character}
+                    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
                     raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-
                     local raycastResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
 
                     if raycastResult then
