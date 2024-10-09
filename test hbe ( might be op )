@@ -1,4 +1,4 @@
-local HeadSize = 6.2
+local HeadSize = 6.2 -- Size used for calculations but NOT modifying actual character parts
 local IsDisabled = true
 local IsTeamCheckEnabled = false
 local HomingRadius = 10
@@ -11,6 +11,7 @@ local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
 local LocalPlayer = Players.LocalPlayer
 
+-- Display success message
 local ScreenGui = Instance.new("ScreenGui")
 local TextLabel = Instance.new("TextLabel")
 
@@ -36,6 +37,7 @@ spawn(function()
     FadeOutText()
 end)
 
+-- System message function
 local function sendChatMessage(message)
     pcall(function()
         StarterGui:SetCore("ChatMakeSystemMessage", {
@@ -47,6 +49,7 @@ local function sendChatMessage(message)
     end)
 end
 
+-- Raycast function to check if a player can be hit
 local function canHitPlayer(attacker, target)
     local attackerHRP = attacker.Character and attacker.Character:FindFirstChild("HumanoidRootPart")
     local targetHRP = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
@@ -62,23 +65,26 @@ local function canHitPlayer(attacker, target)
     return not raycastResult or raycastResult.Instance.Transparency >= TransparencyThreshold
 end
 
+-- Event handler for new character
 local function onCharacterAdded(character)
     local humanoid = character:WaitForChild("Humanoid")
     humanoid.Died:Connect(function()
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and canHitPlayer(player, LocalPlayer) then
-                detectWallHit(player)
+                sendChatMessage("Player " .. player.Name .. " hit behind wall")
             end
         end
     end)
 end
 
+-- Connect character added event
 LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
 
 if LocalPlayer.Character then
     onCharacterAdded(LocalPlayer.Character)
 end
 
+-- Main render loop to handle wall checks without modifying player parts
 RunService.RenderStepped:Connect(function()
     if IsDisabled then
         local character = LocalPlayer.Character
@@ -89,9 +95,7 @@ RunService.RenderStepped:Connect(function()
             if player ~= LocalPlayer and (not IsTeamCheckEnabled or player.Team ~= LocalPlayer.Team) then
                 local humanoidRootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
                 if humanoidRootPart then
-                    humanoidRootPart.Size = Vector3.new(HeadSize, HeadSize, HeadSize)
-                    humanoidRootPart.Transparency = 1
-
+                    -- Only perform checks without modifying character sizes/transparency
                     local rayOrigin = head.Position
                     local rayDirection = (humanoidRootPart.Position - head.Position).Unit * MaxDistance
                     local raycastParams = RaycastParams.new()
@@ -107,7 +111,7 @@ RunService.RenderStepped:Connect(function()
                             local hitMaterial = hitInstance.Material
 
                             if distanceToTarget <= HomingRadius and (IgnoreTransparentWalls or (hitTransparency < TransparencyThreshold and hitMaterial ~= Enum.Material.Air)) then
-                                sendChatMessage("delay")
+                                sendChatMessage("Target detected behind wall")
                             end
                         end
                     end
